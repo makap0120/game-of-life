@@ -1,96 +1,88 @@
 class GameOfLife {
-    constructor() {
-
-        alert(2, canvas);
-        console.log(canvas.width);
-
-        this.cell_size = 5;
+    constructor(ctx, canvas, size) {
+        this.canvas = canvas;
+        this.ctx = ctx;
+        this.cell_size = size ? size : 5;
+        
         this.dead_color = "#181818";
         this.alive_color = "#FF756B";
-        this.cells_in_column = Math.floor(canvas.width / this.cell_size);
-        this.cells_in_row = Math.floor(canvas.height / this.cell_size);
+
+        this.cells_in_row = Math.floor(this.canvas.width/this.cell_size);
+        this.cells_in_column = Math.floor(this.canvas.height/this.cell_size);
         this.active_array = [];
-        this.inactive_array = [];
+        this.updated_array = [];
+
+        this.loopCells = (innercb, outercb) => {
+            for ( let r = 0; r < this.cells_in_row; r++) {
+                outercb && outercb(r);
+                for ( let c = 0; c < this.cells_in_column; c++ ) {
+                    innercb(r, c);
+                }
+            }
+        } 
 
         this.arrayInit = () => {
-            // creating 2 2d arrays
-            for ( let i = 0; i < this.cells_in_row; i++) {
-                this.active_array[i] = [];
-                for (let j = 0; j < this.cells_in_column; j++) {
-                    this.active_array[i][j] = 0;
-                }
-            }
-            this.inactive_array = this.active_array;
+            this.loopCells((r, c) => {
+                this.active_array[r][c] = Math.random() > .3 ? 1 : 0;
+                this.updated_array[r][c] = 0;
+            }, (r) => {
+                this.active_array[r] = [];
+                this.updated_array[r] = [];
+            });
         };
 
-        this.arrayRandomize = () => {
-            // looping thru active array and randomizing values
-            for (let row in this.cells_in_row) {
-                for (let column in this.cells_in_column) {
-                    this.active_array[row][column] = Math.round(Math.random());
-                }
-            }
-        };
+        this.step = () => {
+            this.loopCells((r,c) => {
+                // draw
+                this.ctx.fillStyle = this.active_array[r][c] ? this.alive_color: this.dead_color;
+                this.ctx.fillRect(this.cell_size * r, this.cell_size * c, this.cell_size, this.cell_size);
 
-        this.fillArray = () => {
-            for (let row in this.cells_in_row) {
-                for (let column in this.cells_in_column) {
-                    let color = this.active_array[row][column]? this.alive_color : this.dead_color;
-                    ctx.fillStyle(color);
-                    const size = this.cell_size;
-                    ctx.fillRect(j * size, i * size, this.size, this.size);
+                // prep updated array
+                const ns = this.getNeighbours(r,c);
+                if (this.active_array[r][c]) {
+                    this.updated_array[r][c] = ns < 2 || ns > 3 ? 0 : 1;
+                } else {
+                    this.updated_array[r][c] = ns === 3 ? 1 : 0;
                 }
-            }
-        };
+            });
+            // replace data
+            this.active_array = this.updated_array;
+        }
 
-        this.countNeighbours = (row, col) => {
+        this.getNeighbours = (r, c) => {
             let total = 0;
-            const nRows = [row];
-            const nCols = [col];
+            const nRows = [r];
+            const nCols = [c];
 
-            if (row === 0) {
-                nRows.push(row + 1);
-            } else if (row === this.cells_in_row.length - 1) {
-                nRows.push(row - 1);
-            } else {arrayInit
-            }
-            if (col === 0) {
-                col === 0 && nCols.push(row + 1);
-            } else if (row === this.cells_in_column.length - 1) {
-                nCols.push(row - 1);
-            } else {
-                nCols.push(row + 1);
-                nCols.push(row - 1);
-            }
+            if (r === 0) nRows.push(r + 1);
+            else if (r === this.cells_in_row - 1) nRows.push(r - 1);
+            else nRows.push(r + 1, r - 1);
+            
+            if (c === 0) nCols.push(c + 1);
+            else if (c === this.cells_in_column - 1) nCols.push(c - 1);
+            else nCols.push(c + 1, c - 1);
 
-            for (let nRow of nRows) {
-                for (let nCol of nCols) {
-                    this.active_array[nRow][nCol] && total++;
+            try {
+                for (let nr of nRows) {
+                    for (let nc of nCols) {
+                        this.active_array[nr][nc] && total++;
+                    }
                 }
+            } catch(e) {
+                console.error(this.cells_in_row, this.cells_in_column, this.active_array.length, this.active_array[60]);
+                
+                throw new Error(`row ${r}, col ${c}, ${JSON.stringify(nRows)}, ${JSON.stringify(nCols)}`);
             }
+            
             return total;
-        };
+        }
 
-        this.updateCellValue = (row, col) => {
-            const neighbours = this.countNeighbours(row, col);
-            return neighbours > 4 || neighbours < 3 ? 0 : 1;
-        };
+        this.init = () => {
+            this.arrayInit();
 
-        this.updateLifeCycle = () => {
-            for (let row in this.cells_in_row) {
-                for (let column in this.cells_in_column) {
-                    const new_state = this.updateCellValue(row, column);
-                    this.inactive_array[row][column] = new_state;
-                }
-            }
-
-            this.active_array = this.inactive_array;
-        };
-
-        this.run = () => {
-            this.updateLifeCycle();
-            this.fillArray();
+            setInterval(() => {
+                this.step();
+            }, 600)
         }
     }
-
 }
